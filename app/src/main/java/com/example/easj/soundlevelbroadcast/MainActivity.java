@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -20,104 +21,100 @@ import java.net.InetAddress;
 
 public class MainActivity extends AppCompatActivity {
     public static final int DEFAULT_UDP_PORT = 14593;
-    private SoundMeter soundMeter;
     private TextView view;
     private EditText portView;
+    private MediaRecorder mediaRecorder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         view = findViewById(R.id.mainTextViewMessage);
         portView = findViewById(R.id.mainEditTextUdpPort);
         portView.setText(Integer.toString(DEFAULT_UDP_PORT));
-        soundMeter = new SoundMeter();
-        final ToggleButton toggle = findViewById(R.id.mainToggleButtonOnOff);
-        final DoIt doIt = new DoIt();
-        Thread thread = new Thread(doIt);
-        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    //registerListeners();
-                    new Thread(doIt).start();
-                } else {
-                    if (doIt != null)
+        try {
+            setupMediaRecorder();
+            final ToggleButton toggle = findViewById(R.id.mainToggleButtonOnOff);
+            toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                Thread thread;
+
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    final DoIt doIt = new DoIt();
+                    if (isChecked) {
+                        thread = new Thread(doIt);
+                        thread.start();
+                        Log.d("MINE", "onCheckedChanged isChecked");
+                        Log.d("MINE", "thread is null: " + (thread == null));
+                    } else {
+                        Log.d("MINE", "onCheckedChanged !isChecked");
                         doIt.stop();
+                        thread.interrupt();
+                        Log.d("MINE", "after interrupt");
+                    }
                 }
-            }
-        });
+            });
+        } catch (IOException ex) {
+            Log.e("MINE", ex.getMessage(), ex);
+        }
+    }
+
+    private void setupMediaRecorder() throws IOException {
+        mediaRecorder = new MediaRecorder();
+        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mediaRecorder.setOutputFile("/dev/null");
+        mediaRecorder.prepare();
+        mediaRecorder.start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mediaRecorder.release();
+        mediaRecorder = null;
     }
 
     class DoIt implements Runnable {
+        // Does not work! Why?
         private volatile boolean keepOnRunning = true;
 
         @Override
         public void run() {
             try {
-                soundMeter.start();
                 int i = 0;
                 while (keepOnRunning) {
+                    if (Thread.interrupted()) break;
+                    Log.d("MINE", "run() keepOnRunning: " + keepOnRunning);
                     final int j = ++i;
                     Thread.sleep(1000);
-                    double result = soundMeter.getAmplitude();
-                    final String s = Double.toString(result);
-                    Log.d("MINE", s);
-
-                    sendBroadcast("SoundLevel\n" + result);
-
-                    //view.setText(i + " " + s);
+                    final double amplitude = mediaRecorder.getMaxAmplitude();
+                    sendBroadcast("SoundLevel\n" + amplitude);
                     MainActivity.this.runOnUiThread(new Runnable() {
+                        // Background thread is not allowed to modify the UI directly
                         @Override
                         public void run() {
-                            view.setText(j + " " + s);
+                            view.setText(Double.toString(amplitude));
                         }
                     });
                 }
-                soundMeter.stop();
-            } catch (IOException | InterruptedException ex) {
+            } catch (final IOException ex) {
                 Log.e("MINE", ex.getMessage(), ex);
-                view.setText(ex.getMessage());
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        view.setText(ex.getMessage());
+                    }
+                });
+            } catch (InterruptedException ex) {
+                Log.d("MINE", "run()", ex);
             }
-        }
-
-        public void go() {
-            keepOnRunning = true;
-            Thread.currentThread().interrupt();
         }
 
         public void stop() {
+            // not working! why?
             keepOnRunning = false;
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void sendBroadcast(String name, double value) {
-        String message = name + "\n" + value;
-        Log.d("MINE", message);
-        sendBroadcastAsync(message);
-    }
-
-    private void sendBroadcastAsync(String message) {
-        BroadCaster broadCaster = new BroadCaster();
-        broadCaster.execute(message);
-       /* try {
-            Thread.sleep(1000);
-        } catch (InterruptedException ex) {
-            Log.e("MINE", ex.getMessage(), ex);
-        }*/
-    }
-
-    // Networking must be done in a background thread/task
-    class BroadCaster extends AsyncTask<String, Void, Void> {
-        @Override
-        protected Void doInBackground(String... strings) {
-            try {
-                sendBroadcast(strings[0]);
-            } catch (IOException e) {
-                Log.e("MINE", e.getMessage(), e);
-            }
-            return null;
+            Log.d("MINE", "stop called. keepOnRunning: " + keepOnRunning);
         }
     }
 
