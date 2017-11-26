@@ -36,16 +36,17 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <TextViev
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:labelFor="@id/mainEditTextUdpPort"
+                android:labelFor="@+id/mainEditTextUdpPort"
                 android:text="UDP port" />
 
             <EditText
                 android:id="@+id/mainEditTextUdpPort"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:hint="port"
                 android:inputType="number" />
         </LinearLayout>
 
@@ -64,13 +65,14 @@
                 android:id="@+id/mainEditTextSleepTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:hint="sleep"
                 android:inputType="number"
                 android:text="1000" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/mainTextViewMessage"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </LinearLayout>
 </android.support.constraint.ConstraintLayout>

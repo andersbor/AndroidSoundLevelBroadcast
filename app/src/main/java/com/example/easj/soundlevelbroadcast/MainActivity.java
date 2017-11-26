@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView view;
     private EditText udpPortView, sleepTimeView;
     private MediaRecorder mediaRecorder;
-    private int port = DEFAULT_UDP_PORT;
+    private int port = DEFAULT_UDP_PORT, sleepTime = 1000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,17 +36,21 @@ public class MainActivity extends AppCompatActivity {
                 Thread thread;
 
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    final DoIt doIt = new DoIt();
+                    final DoIt doIt = new DoIt(sleepTime);
                     if (isChecked) {
                         udpPortView.setEnabled(false);
+                        sleepTimeView.setEnabled(false);
                         String udpPortStr = udpPortView.getText().toString();
                         port = Integer.parseInt(udpPortStr);
+                        String sleepTimeStr = sleepTimeView.getText().toString();
+                        sleepTime = Integer.parseInt(sleepTimeStr);
                         thread = new Thread(doIt);
                         thread.start();
                         Log.d("MINE", "onCheckedChanged isChecked");
                         Log.d("MINE", "thread is null: " + (thread == null));
                     } else {
                         udpPortView.setEnabled(true);
+                        sleepTimeView.setEnabled(true);
                         Log.d("MINE", "onCheckedChanged !isChecked");
                         doIt.stop();
                         thread.interrupt();
@@ -80,6 +84,11 @@ public class MainActivity extends AppCompatActivity {
     class DoIt implements Runnable {
         // Does not work! Why?
         private volatile boolean keepOnRunning = true;
+        private int sleepTime;
+
+        DoIt(int sleepTime) {
+            this.sleepTime = sleepTime;
+        }
 
         @Override
         public void run() {
@@ -87,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
                 while (keepOnRunning) {
                     if (Thread.interrupted()) break;
                     Log.d("MINE", "run() keepOnRunning: " + keepOnRunning);
-                    Thread.sleep(1000);
+                    Thread.sleep(sleepTime);
                     final double amplitude = mediaRecorder.getMaxAmplitude();
                     sendUdpBroadcast("SoundLevel\n" + amplitude, port);
                     MainActivity.this.runOnUiThread(new Runnable() {
@@ -124,7 +133,6 @@ public class MainActivity extends AppCompatActivity {
         DatagramSocket socket = new DatagramSocket();
         socket.setBroadcast(true);
         byte[] sendData = messageStr.getBytes();
-        // TODO use udpPortView
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, inetAddress, port);
         socket.send(sendPacket);
         Log.d("MINE", "Broadcast sent: " + messageStr);
