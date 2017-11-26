@@ -16,16 +16,16 @@ import java.net.InetAddress;
 
 public class MainActivity extends AppCompatActivity {
     public static final int DEFAULT_UDP_PORT = 14594;
-    private TextView view;
+    private TextView messageView;
     private EditText udpPortView, sleepTimeView;
     private MediaRecorder mediaRecorder;
-    private int port = DEFAULT_UDP_PORT, sleepTime = 1000;
+    private int udpPortNumber = DEFAULT_UDP_PORT, sleepTime = 1000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        view = findViewById(R.id.mainTextViewMessage);
+        messageView = findViewById(R.id.mainTextViewMessage);
         udpPortView = findViewById(R.id.mainEditTextUdpPort);
         sleepTimeView = findViewById(R.id.mainEditTextSleepTime);
         udpPortView.setText(Integer.toString(DEFAULT_UDP_PORT));
@@ -38,28 +38,37 @@ public class MainActivity extends AppCompatActivity {
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     final DoIt doIt = new DoIt(sleepTime);
                     if (isChecked) {
+                        String udpPortStr = udpPortView.getText().toString();
+                        if ("".equals(udpPortStr)) {
+                            messageView.setText("Missing UDP udpPortNumber");
+                            return;
+                        }
+                        udpPortNumber = Integer.parseInt(udpPortStr);
+                        if (udpPortNumber > 65535) {
+                            messageView.setText("Port number must be lower than 65536");
+                            return;
+                        }
+                        String sleepTimeStr = sleepTimeView.getText().toString();
+                        if ("".equals(sleepTimeStr)) {
+                            messageView.setText("Missing sleep time");
+                            return;
+                        }
+                        sleepTime = Integer.parseInt(sleepTimeStr);
                         udpPortView.setEnabled(false);
                         sleepTimeView.setEnabled(false);
-                        String udpPortStr = udpPortView.getText().toString();
-                        port = Integer.parseInt(udpPortStr);
-                        String sleepTimeStr = sleepTimeView.getText().toString();
-                        sleepTime = Integer.parseInt(sleepTimeStr);
                         thread = new Thread(doIt);
                         thread.start();
-                        Log.d("MINE", "onCheckedChanged isChecked");
-                        Log.d("MINE", "thread is null: " + (thread == null));
                     } else {
                         udpPortView.setEnabled(true);
                         sleepTimeView.setEnabled(true);
-                        Log.d("MINE", "onCheckedChanged !isChecked");
-                        doIt.stop();
+                        doIt.stop(); // no effects. why?
                         thread.interrupt();
-                        Log.d("MINE", "after interrupt");
                     }
                 }
             });
         } catch (IOException ex) {
             Log.e("MINE", ex.getMessage(), ex);
+            messageView.setText(ex.getMessage());
         }
     }
 
@@ -95,15 +104,14 @@ public class MainActivity extends AppCompatActivity {
             try {
                 while (keepOnRunning) {
                     if (Thread.interrupted()) break;
-                    Log.d("MINE", "run() keepOnRunning: " + keepOnRunning);
                     Thread.sleep(sleepTime);
                     final double amplitude = mediaRecorder.getMaxAmplitude();
-                    sendUdpBroadcast("SoundLevel\n" + amplitude, port);
+                    sendUdpBroadcast("SoundLevel\n" + amplitude, udpPortNumber);
                     MainActivity.this.runOnUiThread(new Runnable() {
                         // Background thread is not allowed to modify the UI directly
                         @Override
                         public void run() {
-                            view.setText("Sound level: " + Double.toString(amplitude));
+                            messageView.setText("Sound level: " + Double.toString(amplitude));
                         }
                     });
                 }
@@ -112,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        view.setText(ex.getMessage());
+                        messageView.setText(ex.getMessage());
                     }
                 });
             } catch (InterruptedException ex) {
@@ -123,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
         void stop() {
             // not working! why?
             keepOnRunning = false;
-            Log.d("MINE", "stop called. keepOnRunning: " + keepOnRunning);
         }
     }
 

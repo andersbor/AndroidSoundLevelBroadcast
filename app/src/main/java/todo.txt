@@ -1,6 +1,7 @@
-Sleep time from user
+
 -----------
 Thread + Async task unnecessary
 Use input UDP port (as in SensorExample)
 Start /STOP must work
 MediaRecorder: check permission, is it necessary?
+Sleep time from user
