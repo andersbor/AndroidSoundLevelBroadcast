@@ -1,12 +1,7 @@
 package com.example.easj.soundlevelbroadcast;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.MediaStore;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.CompoundButton;
@@ -20,7 +15,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 
 public class MainActivity extends AppCompatActivity {
-    public static final int DEFAULT_UDP_PORT = 14593;
+    public static final int DEFAULT_UDP_PORT = 14594;
     private TextView view;
     private EditText portView;
     private MediaRecorder mediaRecorder;
@@ -41,11 +36,13 @@ public class MainActivity extends AppCompatActivity {
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     final DoIt doIt = new DoIt();
                     if (isChecked) {
+                        portView.setEnabled(false);
                         thread = new Thread(doIt);
                         thread.start();
                         Log.d("MINE", "onCheckedChanged isChecked");
                         Log.d("MINE", "thread is null: " + (thread == null));
                     } else {
+                        portView.setEnabled(true);
                         Log.d("MINE", "onCheckedChanged !isChecked");
                         doIt.stop();
                         thread.interrupt();
@@ -58,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // https://stackoverflow.com/questions/14181449/android-detect-sound-level
     private void setupMediaRecorder() throws IOException {
         mediaRecorder = new MediaRecorder();
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -107,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             } catch (InterruptedException ex) {
-                Log.d("MINE", "run()", ex);
+                Log.d("MINE", "InterruptedException caught ... continuing");
             }
         }
 
@@ -128,52 +126,5 @@ public class MainActivity extends AppCompatActivity {
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, inetAddress, DEFAULT_UDP_PORT);
         socket.send(sendPacket);
         Log.d("MINE", "Broadcast sent: " + messageStr);
-    }
-
-    // https://stackoverflow.com/questions/14181449/android-detect-sound-level
-    class SoundMeter {
-        private MediaRecorder mRecorder = null;
-
-        public void start() throws IOException {
-            if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-
-                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO},
-                        0);
-            } else {
-
-                if (mRecorder == null) {
-                    mRecorder = new MediaRecorder();
-                    mRecorder.setOnErrorListener(new MediaRecorder.OnErrorListener() {
-                        @Override
-                        public void onError(MediaRecorder mediaRecorder, int i, int i1) {
-                            Log.e("MINE", "Error: " + i + " " + i1);
-                        }
-                    });
-                    mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                    mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-                    mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                    mRecorder.setOutputFile("/dev/null");
-                    mRecorder.prepare();
-                    mRecorder.start();
-
-                }
-            }
-        }
-
-        public void stop() {
-            if (mRecorder != null) {
-                mRecorder.stop();
-                mRecorder.release();
-                mRecorder = null;
-            }
-        }
-
-        public double getAmplitude() {
-            if (mRecorder != null)
-                return mRecorder.getMaxAmplitude(); // since the last call to this method.
-            else
-                return 0;
-
-        }
     }
 }
