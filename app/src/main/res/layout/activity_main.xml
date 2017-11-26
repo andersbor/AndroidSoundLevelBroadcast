@@ -19,6 +19,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:labelFor="@id/mainToggleButtonOnOff"
                 android:text="Listening is" />
 
             <ToggleButton
@@ -28,16 +29,43 @@
                 android:gravity="center"
                 android:textOff="Off"
                 android:textOn="On" />
+        </LinearLayout>
 
-            <TextView
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextViev
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:labelFor="@id/mainEditTextUdpPort"
                 android:text="UDP port" />
 
             <EditText
                 android:id="@+id/mainEditTextUdpPort"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:inputType="number" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:labelFor="@id/mainEditTextSleepTime"
+                android:text="Sleep (ms)" />
+
+            <EditText
+                android:id="@+id/mainEditTextSleepTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:text="1000" />
         </LinearLayout>
 
         <TextView
@@ -45,5 +73,4 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
     </LinearLayout>
-
 </android.support.constraint.ConstraintLayout>

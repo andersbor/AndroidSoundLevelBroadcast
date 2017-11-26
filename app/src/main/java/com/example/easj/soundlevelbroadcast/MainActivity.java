@@ -17,16 +17,18 @@ import java.net.InetAddress;
 public class MainActivity extends AppCompatActivity {
     public static final int DEFAULT_UDP_PORT = 14594;
     private TextView view;
-    private EditText portView;
+    private EditText udpPortView, sleepTimeView;
     private MediaRecorder mediaRecorder;
+    private int port = DEFAULT_UDP_PORT;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         view = findViewById(R.id.mainTextViewMessage);
-        portView = findViewById(R.id.mainEditTextUdpPort);
-        portView.setText(Integer.toString(DEFAULT_UDP_PORT));
+        udpPortView = findViewById(R.id.mainEditTextUdpPort);
+        sleepTimeView = findViewById(R.id.mainEditTextSleepTime);
+        udpPortView.setText(Integer.toString(DEFAULT_UDP_PORT));
         try {
             setupMediaRecorder();
             final ToggleButton toggle = findViewById(R.id.mainToggleButtonOnOff);
@@ -36,13 +38,15 @@ public class MainActivity extends AppCompatActivity {
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     final DoIt doIt = new DoIt();
                     if (isChecked) {
-                        portView.setEnabled(false);
+                        udpPortView.setEnabled(false);
+                        String udpPortStr = udpPortView.getText().toString();
+                        port = Integer.parseInt(udpPortStr);
                         thread = new Thread(doIt);
                         thread.start();
                         Log.d("MINE", "onCheckedChanged isChecked");
                         Log.d("MINE", "thread is null: " + (thread == null));
                     } else {
-                        portView.setEnabled(true);
+                        udpPortView.setEnabled(true);
                         Log.d("MINE", "onCheckedChanged !isChecked");
                         doIt.stop();
                         thread.interrupt();
@@ -80,19 +84,17 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             try {
-                int i = 0;
                 while (keepOnRunning) {
                     if (Thread.interrupted()) break;
                     Log.d("MINE", "run() keepOnRunning: " + keepOnRunning);
-                    final int j = ++i;
                     Thread.sleep(1000);
                     final double amplitude = mediaRecorder.getMaxAmplitude();
-                    sendBroadcast("SoundLevel\n" + amplitude);
+                    sendUdpBroadcast("SoundLevel\n" + amplitude, port);
                     MainActivity.this.runOnUiThread(new Runnable() {
                         // Background thread is not allowed to modify the UI directly
                         @Override
                         public void run() {
-                            view.setText(Double.toString(amplitude));
+                            view.setText("Sound level: " + Double.toString(amplitude));
                         }
                     });
                 }
@@ -109,21 +111,21 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        public void stop() {
+        void stop() {
             // not working! why?
             keepOnRunning = false;
             Log.d("MINE", "stop called. keepOnRunning: " + keepOnRunning);
         }
     }
 
-    public void sendBroadcast(String messageStr) throws IOException {
+    public void sendUdpBroadcast(String messageStr, int port) throws IOException {
         String broadcastIP = "255.255.255.255";
         InetAddress inetAddress = InetAddress.getByName(broadcastIP);
         DatagramSocket socket = new DatagramSocket();
         socket.setBroadcast(true);
         byte[] sendData = messageStr.getBytes();
-        // TODO use portView
-        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, inetAddress, DEFAULT_UDP_PORT);
+        // TODO use udpPortView
+        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, inetAddress, port);
         socket.send(sendPacket);
         Log.d("MINE", "Broadcast sent: " + messageStr);
     }
