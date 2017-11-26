@@ -2,21 +2,27 @@ package com.example.easj.soundlevelbroadcast;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.media.MediaRecorder;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.media.MediaRecorder;
 import android.util.Log;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
 public class MainActivity extends AppCompatActivity {
+    public static final int DEFAULT_UDP_PORT = 14593;
     private SoundMeter soundMeter;
-    private TextView view
+    private TextView view;
+    private EditText portView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,50 +30,111 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         view = findViewById(R.id.mainTextViewMessage);
+        portView = findViewById(R.id.mainEditTextUdpPort);
+        portView.setText(Integer.toString(DEFAULT_UDP_PORT));
         soundMeter = new SoundMeter();
         final ToggleButton toggle = findViewById(R.id.mainToggleButtonOnOff);
+        final DoIt doIt = new DoIt();
+        Thread thread = new Thread(doIt);
         toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-                    registerListeners();
+                    //registerListeners();
+                    new Thread(doIt).start();
                 } else {
-                    unregisterListeners();
+                    if (doIt != null)
+                        doIt.stop();
                 }
             }
         });
     }
 
-    class RecordAsync extends AsyncTask<Void, Void, Double> {
+    class DoIt implements Runnable {
+        private volatile boolean keepOnRunning = true;
 
         @Override
-        protected Double doInBackground(Void... voids) {
+        public void run() {
+            try {
+                soundMeter.start();
+                int i = 0;
+                while (keepOnRunning) {
+                    final int j = ++i;
+                    Thread.sleep(1000);
+                    double result = soundMeter.getAmplitude();
+                    final String s = Double.toString(result);
+                    Log.d("MINE", s);
+
+                    sendBroadcast("SoundLevel\n" + result);
+
+                    //view.setText(i + " " + s);
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            view.setText(j + " " + s);
+                        }
+                    });
+                }
+                soundMeter.stop();
+            } catch (IOException | InterruptedException ex) {
+                Log.e("MINE", ex.getMessage(), ex);
+                view.setText(ex.getMessage());
+            }
+        }
+
+        public void go() {
+            keepOnRunning = true;
+            Thread.currentThread().interrupt();
+        }
+
+        public void stop() {
+            keepOnRunning = false;
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void sendBroadcast(String name, double value) {
+        String message = name + "\n" + value;
+        Log.d("MINE", message);
+        sendBroadcastAsync(message);
+    }
+
+    private void sendBroadcastAsync(String message) {
+        BroadCaster broadCaster = new BroadCaster();
+        broadCaster.execute(message);
+       /* try {
+            Thread.sleep(1000);
+        } catch (InterruptedException ex) {
+            Log.e("MINE", ex.getMessage(), ex);
+        }*/
+    }
+
+    // Networking must be done in a background thread/task
+    class BroadCaster extends AsyncTask<String, Void, Void> {
+        @Override
+        protected Void doInBackground(String... strings) {
+            try {
+                sendBroadcast(strings[0]);
+            } catch (IOException e) {
+                Log.e("MINE", e.getMessage(), e);
+            }
             return null;
         }
     }
 
-
-    private void record() {
-        try {
-            soundMeter.start();
-            for (int i = 0; i < 10; i++) {
-
-                double result = soundMeter.getAmplitude();
-                String s = Double.toString(result);
-                Log.d("MINE", s);
-
-                view.setText(i + " " + s);
-                Thread.sleep(1000);
-            }
-            soundMeter.stop();
-
-        } catch (IOException | InterruptedException ex) {
-            view.setText(ex.getMessage());
-        }
+    public void sendBroadcast(String messageStr) throws IOException {
+        String broadcastIP = "255.255.255.255";
+        InetAddress inetAddress = InetAddress.getByName(broadcastIP);
+        DatagramSocket socket = new DatagramSocket();
+        socket.setBroadcast(true);
+        byte[] sendData = messageStr.getBytes();
+        // TODO use portView
+        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, inetAddress, DEFAULT_UDP_PORT);
+        socket.send(sendPacket);
+        Log.d("MINE", "Broadcast sent: " + messageStr);
     }
 
-
+    // https://stackoverflow.com/questions/14181449/android-detect-sound-level
     class SoundMeter {
-
         private MediaRecorder mRecorder = null;
 
         public void start() throws IOException {
@@ -91,6 +158,7 @@ public class MainActivity extends AppCompatActivity {
                     mRecorder.setOutputFile("/dev/null");
                     mRecorder.prepare();
                     mRecorder.start();
+
                 }
             }
         }
